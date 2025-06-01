@@ -19,12 +19,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   String? _error;
   DateTimeRange? _selectedDateRange;
   late TabController _tabController;
+  bool _isDarkMode = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadTransactions();
+    // Check system theme preference
+    _checkSystemTheme();
+  }
+
+  Future<void> _checkSystemTheme() async {
+    final brightness = MediaQuery.of(context).platformBrightness;
+    setState(() {
+      _isDarkMode = brightness == Brightness.dark;
+    });
   }
 
   @override
@@ -87,59 +97,75 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
+  void _toggleTheme() {
+    setState(() {
+      _isDarkMode = !_isDarkMode;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        title: const Text('MoMo Transactions', 
-          style: TextStyle(
-            color: Color.fromARGB(255, 254, 253, 253),
-            fontSize: 20,
-            fontWeight: FontWeight.bold
-          )
-        ),
-        leading: Container(
-          padding: const EdgeInsets.all(10.0),
-          child: const Image(
-            image: AssetImage('assets/images/momoLogo.webp'),
-          )
-        ),
-        backgroundColor: Colors.green,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_today, color: Colors.white),
-            onPressed: _selectDateRange,
+    final themeData = _isDarkMode ? _darkTheme : _lightTheme;
+    
+    return MaterialApp(
+      theme: themeData,
+      home: Scaffold(
+        appBar: AppBar(
+          elevation: 0,
+          title: const Text('MoMo Transactions', 
+            style: TextStyle(
+              color: Color.fromARGB(255, 254, 253, 253),
+              fontSize: 20,
+              fontWeight: FontWeight.bold
+            )
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadTransactions,
+          leading: Container(
+            padding: const EdgeInsets.all(10.0),
+            child: const Image(
+              image: AssetImage('assets/images/momoLogo.webp'),
+            )
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.list), text: 'Transactions'),
-            Tab(icon: Icon(Icons.bar_chart), text: 'Analytics'),
+          backgroundColor: Colors.green,
+          actions: [
+            IconButton(
+              icon: Icon(_isDarkMode ? Icons.light_mode : Icons.dark_mode, 
+                color: Colors.white),
+              onPressed: _toggleTheme,
+            ),
+            IconButton(
+              icon: const Icon(Icons.calendar_today, color: Colors.white),
+              onPressed: _selectDateRange,
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              onPressed: _loadTransactions,
+            ),
           ],
-          labelColor: Colors.white,
-          indicatorColor: const Color.fromARGB(255, 255, 254, 254),
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          Container(
-            color: Colors.grey[100],
-            child: _buildTransactionList(),
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(icon: Icon(Icons.list), text: 'Transactions'),
+              Tab(icon: Icon(Icons.bar_chart), text: 'Analytics'),
+            ],
+            labelColor: Colors.white,
+            indicatorColor: const Color.fromARGB(255, 255, 254, 254),
           ),
-          ChartScreen(transactions: _filteredTransactions),
-        ],
+        ),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            Container(
+              color: themeData.scaffoldBackgroundColor,
+              child: _buildTransactionList(themeData),
+            ),
+            ChartScreen(transactions: _filteredTransactions),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTransactionList() {
+  Widget _buildTransactionList(ThemeData theme) {
     if (_isLoading) {
       return Center(
         child: Column(
@@ -152,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             Text(
               'Loading transactions...',
               style: TextStyle(
-                color: Colors.grey[600],
+                color: theme.textTheme.bodyLarge?.color?.withOpacity(0.7),
                 fontSize: 16,
               ),
             ),
@@ -168,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           children: [
             Text(
               'Error: $_error',
-              style: const TextStyle(color: Colors.red),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -186,7 +212,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('No transactions found'),
+            Text(
+              'No transactions found',
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+            ),
             if (_selectedDateRange != null)
               TextButton(
                 onPressed: () {
@@ -212,15 +241,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              color: theme.cardColor,
               child: ListTile(
-                leading: const Icon(Icons.date_range, color: Colors.green),
+                leading: Icon(Icons.date_range, color: theme.primaryColor),
                 title: Text(
                   '${DateFormat('MMM dd, yyyy').format(_selectedDateRange!.start)} - '
                   '${DateFormat('MMM dd, yyyy').format(_selectedDateRange!.end)}',
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: theme.textTheme.bodyLarge?.color,
+                  ),
                 ),
                 trailing: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: Icon(Icons.close, color: theme.iconTheme.color),
                   onPressed: () {
                     setState(() {
                       _selectedDateRange = null;
@@ -231,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               ),
             ),
           ),
-        _buildTransactionSummary(),
+        _buildTransactionSummary(theme),
         Expanded(
           child: RefreshIndicator(
             color: Colors.green,
@@ -241,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               itemCount: _filteredTransactions.length,
               itemBuilder: (context, index) {
                 final transaction = _filteredTransactions[index];
-                return _buildTransactionCard(transaction);
+                return _buildTransactionCard(transaction, theme);
               },
             ),
           ),
@@ -250,7 +283,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildTransactionSummary() {
+  Widget _buildTransactionSummary(ThemeData theme) {
     double totalIncoming = 0;
     double totalOutgoing = 0;
     double totalPayments = 0;
@@ -275,30 +308,36 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
+      color: theme.cardColor,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildSummaryItem('Income', totalIncoming, Colors.green, Icons.arrow_downward),
-            Container(height: 40, width: 1, color: Colors.grey[300]),
-            _buildSummaryItem('Expenses', totalOutgoing, Colors.red, Icons.arrow_upward),
-            Container(height: 40, width: 1, color: Colors.grey[300]),
-            _buildSummaryItem('Payments', totalPayments, Colors.orange, Icons.payment),
+            _buildSummaryItem('Income', totalIncoming, Colors.green, Icons.arrow_downward, theme),
+            Container(height: 40, width: 1, color: theme.dividerColor),
+            _buildSummaryItem('Expenses', totalOutgoing, Colors.red, Icons.arrow_upward, theme),
+            Container(height: 40, width: 1, color: theme.dividerColor),
+            _buildSummaryItem('Payments', totalPayments, Colors.orange, Icons.payment, theme),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSummaryItem(String title, double amount, Color color, IconData icon) {
+  Widget _buildSummaryItem(String title, double amount, Color color, IconData icon, ThemeData theme) {
     final formatter = NumberFormat("#,##0", "en_US");
     return Column(
       children: [
         Icon(icon, color: color, size: 24),
         const SizedBox(height: 4),
-        Text(title,
-            style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 14, 
+            color: theme.textTheme.bodyLarge?.color?.withOpacity(0.7),
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           '${formatter.format(amount)} RWF',
@@ -312,7 +351,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildTransactionCard(Transaction transaction) {
+  Widget _buildTransactionCard(Transaction transaction, ThemeData theme) {
     final formatter = NumberFormat("#,##0", "en_US");
     final bool isPayment = transaction.description.toLowerCase().contains('payment of');
     final amountColor = transaction.isIncoming 
@@ -329,6 +368,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
+      color: theme.cardColor,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -348,9 +388,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 children: [
                   Text(
                     transaction.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
+                      color: theme.textTheme.bodyLarge?.color,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -359,7 +400,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       Text(
                         DateFormat('MMM dd, HH:mm').format(transaction.date),
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: theme.textTheme.bodyLarge?.color?.withOpacity(0.6),
                           fontSize: 13,
                         ),
                       ),
@@ -368,13 +409,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.grey[200],
+                            color: theme.dividerColor.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'Ref: ${transaction.reference}',
                             style: TextStyle(
-                              color: Colors.grey[700],
+                              color: theme.textTheme.bodyLarge?.color?.withOpacity(0.7),
                               fontSize: 12,
                             ),
                           ),
@@ -398,4 +439,47 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
     );
   }
+
+  // Light theme
+  final ThemeData _lightTheme = ThemeData(
+    brightness: Brightness.light,
+    primarySwatch: Colors.green,
+    scaffoldBackgroundColor: Colors.grey[100],
+    cardColor: Colors.white,
+    appBarTheme: const AppBarTheme(
+      color: Colors.green,
+      iconTheme: IconThemeData(color: Colors.white),
+    ),
+    tabBarTheme: const TabBarTheme(
+      labelColor: Colors.white,
+      unselectedLabelColor: Colors.white70,
+      indicatorColor: Colors.white,
+    ),
+    dividerColor: Colors.grey[300],
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: Colors.black87),
+    ),
+  );
+
+  // Dark theme
+  final ThemeData _darkTheme = ThemeData(
+    brightness: Brightness.dark,
+    primarySwatch: Colors.green,
+    scaffoldBackgroundColor: const Color(0xFF121212),
+    cardColor: const Color(0xFF1E1E1E),
+    appBarTheme: const AppBarTheme(
+      color: Colors.green,
+      iconTheme: IconThemeData(color: Colors.white),
+    ),
+    tabBarTheme: const TabBarTheme(
+      labelColor: Colors.white,
+      unselectedLabelColor: Colors.white70,
+      indicatorColor: Colors.white,
+    ),
+    dividerColor: Colors.grey[700],
+    textTheme: const TextTheme(
+      bodyLarge: TextStyle(color: Colors.white),
+    ),
+    iconTheme: const IconThemeData(color: Colors.white),
+  );
 }
